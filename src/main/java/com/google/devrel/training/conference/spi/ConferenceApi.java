@@ -12,6 +12,7 @@ import com.google.devrel.training.conference.Constants;
 import com.google.devrel.training.conference.domain.Conference;
 import com.google.devrel.training.conference.domain.Profile;
 import com.google.devrel.training.conference.form.ConferenceForm;
+import com.google.devrel.training.conference.form.ConferenceQueryForm;
 import com.google.devrel.training.conference.form.ProfileForm;
 import com.google.devrel.training.conference.form.ProfileForm.TeeShirtSize;
 import com.google.devrel.training.conference.service.OfyService;
@@ -55,9 +56,6 @@ public class ConferenceApi {
     public Profile saveProfile(final User user, ProfileForm profileForm) throws UnauthorizedException {
         // If the user is not logged in, throw an UnauthorizedException
         if (user == null) {
-            System.out.println("----------------------------------------------");
-            System.out.println(user);
-            System.out.println("----------------------------------------------");
             throw new UnauthorizedException("Authorization Required");
 
         }
@@ -131,7 +129,7 @@ public class ConferenceApi {
      * Gets the Profile entity for the current user
      * or creates it if it doesn't exist
      *
-     * @param user
+     * @param user the logged in user
      * @return user's Profile
      */
     private static Profile getProfileFromUser(User user) {
@@ -204,10 +202,10 @@ public class ConferenceApi {
      * @return list of all the created Conference Object sorted by conference name.
      */
     @ApiMethod(name = "queryConferences", path = "queryConferences", httpMethod = HttpMethod.POST)
-    public List<Conference> queryConferences() {
+    public List<Conference> queryConferences(ConferenceQueryForm conferenceQueryForm) {
         //
-        Query<Conference> query = ofy().load().type(Conference.class).order("name");
-        return query.list();
+//        Query<Conference> query = ofy().load().type(Conference.class).order("name");
+        return conferenceQueryForm.getQuery().list();
     }
 
     /**
@@ -232,10 +230,13 @@ public class ConferenceApi {
 
     public List<Conference> filterPlayground() {
 
-        Query<Conference> query = ofy().load().type(Conference.class).order("name");
-        query = query.filter("city =", "London");
-        query = query.filter("topics =", "Medical Innovations");
-        query = query.filter("month =", 6);
+        Query<Conference> query = ofy().load().type(Conference.class);
+        query = query.filter("city =", "Tokyo");
+        query = query.filter("seatsAvailable >", 0).
+                filter("seatsAvailable <", 10).
+                order("seatsAvailable").
+                order("name").
+                order("month");
 
         return query.list();
     }
