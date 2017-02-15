@@ -151,7 +151,7 @@ public class ConferenceApiTest {
         assertEquals(newDisplayName, profile.getDisplayName());
     }
 
-    /*@Test
+    @Test
     public void testUpdateProfileWithNulls() throws Exception {
         conferenceApi.saveProfile(user, new ProfileForm(DISPLAY_NAME, TEE_SHIRT_SIZE));
         // Update the Profile with null values.
@@ -169,11 +169,11 @@ public class ConferenceApiTest {
         assertEquals(EMAIL, profile.getMainEmail());
         assertEquals(TEE_SHIRT_SIZE, profile.getTeeShirtSize());
         assertEquals(DISPLAY_NAME, profile.getDisplayName());
-    }*/
+    }
 
 
 
-/*
+
     @Test
     public void testCreateConference() throws Exception {
         DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
@@ -204,10 +204,10 @@ public class ConferenceApiTest {
         assertEquals(TEE_SHIRT_SIZE, profile.getTeeShirtSize());
         String displayName = EMAIL.substring(0, EMAIL.indexOf("@"));
         assertEquals(displayName, profile.getDisplayName());
-    }*/
+    }
 
 
-    /*
+
     @Test
     public void testGetConferencesCreated() throws Exception {
         DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
@@ -226,9 +226,9 @@ public class ConferenceApiTest {
         assertTrue("The result should contain a conference",
                 conferencesCreated.contains(conference));
     }
-    */
 
-    /*
+
+
     @Test
     public void testGetConference() throws Exception {
         DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
@@ -246,7 +246,7 @@ public class ConferenceApiTest {
         assertEquals(NAME, conference.getName());
         assertEquals(DESCRIPTION, conference.getDescription());
         assertEquals(topics, conference.getTopics());
-        assertEquals(USER_ID, conference.getOrganizerGplusId());
+        assertEquals(USER_ID, conference.getOrganizerUserId());
         assertEquals(CITY, conference.getCity());
         assertEquals(startDate, conference.getStartDate());
         assertEquals(endDate, conference.getEndDate());
@@ -254,9 +254,9 @@ public class ConferenceApiTest {
         assertEquals(CAP, conference.getSeatsAvailable());
         assertEquals(MONTH, conference.getMonth());
     }
-    */
 
-    /*
+
+
     @Test
     public void testRegistrations() throws Exception {
         DateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
@@ -291,5 +291,5 @@ public class ConferenceApiTest {
         assertFalse("Profile shouldn't have the conferenceId in conferenceIdsToAttend.",
                 profile.getConferenceKeysToAttend().contains(conference.getWebsafeKey()));
     }
-    */
+
 }
