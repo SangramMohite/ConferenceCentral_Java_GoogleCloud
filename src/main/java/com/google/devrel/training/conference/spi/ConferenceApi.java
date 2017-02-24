@@ -20,6 +20,7 @@ import com.google.appengine.api.urlfetch.HTTPMethod;
 import com.google.appengine.api.users.User;
 import com.google.devrel.training.conference.Constants;
 import com.google.devrel.training.conference.domain.Announcement;
+import com.google.devrel.training.conference.domain.AppEngineUser;
 import com.google.devrel.training.conference.domain.Conference;
 import com.google.devrel.training.conference.domain.Profile;
 import com.google.devrel.training.conference.form.ConferenceForm;
@@ -27,12 +28,14 @@ import com.google.devrel.training.conference.form.ConferenceQueryForm;
 import com.google.devrel.training.conference.form.ProfileForm;
 import com.google.devrel.training.conference.form.ProfileForm.TeeShirtSize;
 import com.googlecode.objectify.Key;
+import com.googlecode.objectify.Objectify;
 import com.googlecode.objectify.Work;
 import com.googlecode.objectify.cmd.Query;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Defines conference APIs.
@@ -56,6 +59,28 @@ public class ConferenceApi {
      */
     private static String extractDefaultDisplayNameFromEmail(String email) {
         return email == null ? null : email.substring(0, email.indexOf("@"));
+    }
+
+    /**
+     * This is an ugly workaround for null userId for Android clients.
+     *
+     * @param user A User object injected by the cloud endpoints.
+     * @return the App Engine userId for the user.
+     */
+    private static String getUserId(User user) {
+        String userId = user.getUserId();
+        Logger Log = Logger.getLogger(ConferenceApi.class.getName());
+        if (userId == null) {
+            Log.info("userId is null, so trying to obtain it from the datastore.");
+            AppEngineUser appEngineUser = new AppEngineUser(user);
+            ofy().save().entity(appEngineUser).now();
+            // Begin new session for not using session cache.
+            Objectify objectify = ofy().factory().begin();
+            AppEngineUser savedUser = objectify.load().key(appEngineUser.getKey()).now();
+            userId = savedUser.getUser().getUserId();
+            Log.info("Obtained the userId: " + userId);
+        }
+        return userId;
     }
 
     /**
@@ -83,7 +108,7 @@ public class ConferenceApi {
         }
         // Get the userId and mainEmail
         String mainEmail = user.getEmail();
-        String userId = user.getUserId();
+        String userId = getUserId(user);
 
         // Set the teeShirtSize to the value sent by the ProfileForm, if sent
         // otherwise leave it as the default value
@@ -141,7 +166,7 @@ public class ConferenceApi {
 
         // TODO
         // load the Profile Entity
-        String userId = user.getUserId();
+        String userId = getUserId(user);
         Key key = Key.create(Profile.class, userId);
         return (Profile) ofy().load().key(key).now();
 
@@ -157,12 +182,12 @@ public class ConferenceApi {
     private static Profile getProfileFromUser(User user) {
         // First fetch the user's Profile from the datastore.
         Profile profile = ofy().load().key(
-                Key.create(Profile.class, user.getUserId())).now();
+                Key.create(Profile.class, getUserId(user))).now();
         if (profile == null) {
             // Create a new Profile if it doesn't exist.
             // Use default displayName and teeShirtSize
             String email = user.getEmail();
-            profile = new Profile(user.getUserId(),
+            profile = new Profile(getUserId(user),
                     extractDefaultDisplayNameFromEmail(email), email, TeeShirtSize.NOT_SPECIFIED);
         }
         return profile;
@@ -185,7 +210,7 @@ public class ConferenceApi {
 
         // TODO (Lesson 4)
         // Get the userId of the logged in User
-        final String userId = user.getUserId();
+        final String userId = getUserId(user);
 
         // TODO (Lesson 4)
         // Get the key for the User's Profile
@@ -212,7 +237,7 @@ public class ConferenceApi {
                 Profile profile = getProfileFromUser(user);
                 if (profile == null) {
                     String email = user.getEmail();
-                    profile = new Profile(user.getUserId(),
+                    profile = new Profile(getUserId(user),
                             extractDefaultDisplayNameFromEmail(email), email, TeeShirtSize.NOT_SPECIFIED);
                 }
 
@@ -275,7 +300,7 @@ public class ConferenceApi {
         if (user == null)
             throw new UnauthorizedException("Authorization required");
 
-        String userId = user.getUserId();
+        String userId = getUserId(user);
         Key key = Key.create(Profile.class, userId);
         Query<Conference> query = ofy().load().type(Conference.class).order("name").ancestor(key);
 
@@ -370,7 +395,7 @@ public class ConferenceApi {
         }
 
         // Get the userId
-        final String userId = user.getUserId();
+        final String userId = getUserId(user);
 
         // TODO
         // Start transaction
@@ -514,7 +539,7 @@ public class ConferenceApi {
         // TODO
         // 1. get user from user id
 
-        final String userId = user.getUserId();
+        final String userId = getUserId(user);
 
         // 2. start transaction to unregister
         WrappedBoolean result = ofy().transact(new Work<WrappedBoolean>() {
