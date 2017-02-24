@@ -57,6 +57,8 @@
             <web-resource-name>tasks</web-resource-name>
             <url-pattern>/tasks/*</url-pattern>
         </web-resource-collection>
-        <auth-constraint>admin</auth-constraint>
+        <auth-constraint>
+            <role-name>admin</role-name>
+        </auth-constraint>
     </security-constraint>
 </web-app>

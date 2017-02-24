@@ -13,6 +13,9 @@ import com.google.api.server.spi.response.NotFoundException;
 import com.google.api.server.spi.response.UnauthorizedException;
 import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
+import com.google.appengine.api.taskqueue.Queue;
+import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.appengine.api.urlfetch.HTTPMethod;
 import com.google.appengine.api.users.User;
 import com.google.devrel.training.conference.Constants;
@@ -34,8 +37,17 @@ import java.util.List;
 /**
  * Defines conference APIs.
  */
-@Api(name = "conference", version = "v1", scopes = {Constants.EMAIL_SCOPE, "https://www.googleapis.com/auth/plus.login email"}, clientIds = {
-        Constants.WEB_CLIENT_ID, Constants.API_EXPLORER_CLIENT_ID}, description = "API for the Conference Central Backend application.")
+@Api(name = "conference",
+        version = "v1",
+        scopes = {Constants.EMAIL_SCOPE, "https://www.googleapis.com/auth/plus.login email"},
+        clientIds =
+                {
+                Constants.WEB_CLIENT_ID,
+                Constants.API_EXPLORER_CLIENT_ID,
+                Constants.ANDROID_CLIENT_ID
+                },
+        audiences = {Constants.ANDROID_AUDIENCE},
+        description = "API for the Conference Central Backend application.")
 public class ConferenceApi {
 
     /*
@@ -173,7 +185,7 @@ public class ConferenceApi {
 
         // TODO (Lesson 4)
         // Get the userId of the logged in User
-        String userId = user.getUserId();
+        final String userId = user.getUserId();
 
         // TODO (Lesson 4)
         // Get the key for the User's Profile
@@ -187,27 +199,41 @@ public class ConferenceApi {
         // TODO (Lesson 4)
         // Get the Conference Id from the Key
         final long conferenceId = conferenceKey.getId();
+        final Queue queue = QueueFactory.getQueue("email-queue");
 
         // TODO (Lesson 4)
         // Get the existing Profile entity for the current user if there is one
         // Otherwise create a new Profile entity with default values
-        Profile profile = getProfile(user);
-        if (profile == null) {
-            String email = user.getEmail();
-            profile = new Profile(user.getUserId(),
-                    extractDefaultDisplayNameFromEmail(email), email, TeeShirtSize.NOT_SPECIFIED);
-        }
 
-        // TODO (Lesson 4)
-        // Create a new Conference Entity, specifying the user's Profile entity
-        // as the parent of the conference
-        Conference conference = new Conference(conferenceId, userId, conferenceForm);
+        Conference conference = ofy().transact(new Work<Conference>() {
+            @Override
+            public Conference run() {
 
-        // TODO (Lesson 4)
-        // Save Conference and Profile Entities
+                Profile profile = getProfileFromUser(user);
+                if (profile == null) {
+                    String email = user.getEmail();
+                    profile = new Profile(user.getUserId(),
+                            extractDefaultDisplayNameFromEmail(email), email, TeeShirtSize.NOT_SPECIFIED);
+                }
+
+                // TODO (Lesson 4)
+                // Create a new Conference Entity, specifying the user's Profile entity
+                // as the parent of the conference
+                Conference conference = new Conference(conferenceId, userId, conferenceForm);
+
+                // TODO (Lesson 4)
+                // Save Conference and Profile Entities
 //        ofy().save().entities(profile, conference).now();
-        ofy().save().entity(profile).now();
-        ofy().save().entity(conference).now();
+                ofy().save().entity(profile).now();
+                ofy().save().entity(conference).now();
+                queue.add(ofy().getTransaction(),
+                        TaskOptions.Builder.withUrl("/tasks/send_confirmation_email")
+                                .param("email", profile.getMainEmail())
+                                .param("conferenceInfo", conference.toString()));
+                return conference;
+            }
+        });
+
         return conference;
     }
 
