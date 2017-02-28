@@ -19,14 +19,12 @@ import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.appengine.api.urlfetch.HTTPMethod;
 import com.google.appengine.api.users.User;
 import com.google.devrel.training.conference.Constants;
-import com.google.devrel.training.conference.domain.Announcement;
-import com.google.devrel.training.conference.domain.AppEngineUser;
-import com.google.devrel.training.conference.domain.Conference;
-import com.google.devrel.training.conference.domain.Profile;
+import com.google.devrel.training.conference.domain.*;
 import com.google.devrel.training.conference.form.ConferenceForm;
 import com.google.devrel.training.conference.form.ConferenceQueryForm;
 import com.google.devrel.training.conference.form.ProfileForm;
 import com.google.devrel.training.conference.form.ProfileForm.TeeShirtSize;
+import com.google.devrel.training.conference.form.SessionForm;
 import com.googlecode.objectify.Key;
 import com.googlecode.objectify.Objectify;
 import com.googlecode.objectify.Work;
@@ -92,6 +90,7 @@ public class ConferenceApi {
      * @return Profile object just created.
      * @throws UnauthorizedException when the User object is null.
      */
+
 
     // Declare this method as a method available externally through Endpoints
     @ApiMethod(name = "saveProfile", path = "profile", httpMethod = HttpMethod.POST)
@@ -208,25 +207,22 @@ public class ConferenceApi {
             throw new UnauthorizedException("Authorization required");
         }
 
-        // TODO (Lesson 4)
         // Get the userId of the logged in User
         final String userId = getUserId(user);
 
-        // TODO (Lesson 4)
         // Get the key for the User's Profile
         Key<Profile> profileKey = Key.create(Profile.class, userId);
 
-        // TODO (Lesson 4)
         // Allocate a key for the conference -- let App Engine allocate the ID
         // Don't forget to include the parent Profile in the allocated ID
         final Key<Conference> conferenceKey = factory().allocateId(profileKey, Conference.class);
 
-        // TODO (Lesson 4)
         // Get the Conference Id from the Key
         final long conferenceId = conferenceKey.getId();
-        final Queue queue = QueueFactory.getQueue("email-queue");
+//        final Queue queue = QueueFactory.getQueue("email-queue");
 
-        // TODO (Lesson 4)
+        final Queue queue = QueueFactory.getDefaultQueue();
+
         // Get the existing Profile entity for the current user if there is one
         // Otherwise create a new Profile entity with default values
 
@@ -294,7 +290,11 @@ public class ConferenceApi {
      * @return list of all the conferences created by the user.
      * @throws UnauthorizedException when the user is not signed in.
      */
-    @ApiMethod(name = "getConferencesCreated", path = "getConferencesCreated", httpMethod = HttpMethod.POST)
+    @ApiMethod(
+            name = "getConferencesCreated",
+            path = "getConferencesCreated",
+            httpMethod = HttpMethod.POST
+    )
     public List<Conference> getConferencesCreated(final User user)
             throws UnauthorizedException {
         if (user == null)
@@ -386,7 +386,7 @@ public class ConferenceApi {
     )
 
     public WrappedBoolean registerForConference(final User user,
-                                                         @Named("websafeConferenceKey") final String websafeConferenceKey)
+                                                @Named("websafeConferenceKey") final String websafeConferenceKey)
             throws UnauthorizedException, NotFoundException,
             ForbiddenException, ConflictException {
         // If not signed in, throw a 401 error.
@@ -591,7 +591,7 @@ public class ConferenceApi {
         return result;
     }
 
-    @ApiMethod (
+    @ApiMethod(
             name = "getAnnouncement",
             path = "announcement",
             httpMethod = HttpMethod.GET
@@ -608,5 +608,54 @@ public class ConferenceApi {
         return null;
     }
 
-}
+    @ApiMethod(
+            name = "createSession",
+            path = "conference/{websafeConferenceKey}/createSession",
+            httpMethod = HttpMethod.POST
+    )
 
+    public Session createSession(final SessionForm sessionForm,
+                                 @Named("websafeConferenceKey") final String websafeConferenceKey)
+            throws NotFoundException {
+
+        final Key<Conference> conferenceKey = Key.create(websafeConferenceKey);
+        final Key<Session> sessionKey = factory().allocateId(conferenceKey, Session.class);
+        final long sessionId = sessionKey.getId();
+
+        Session session = ofy().transact(new Work<Session>() {
+            @Override
+            public Session run() {
+                Conference conference = ofy().load().key(conferenceKey).now();
+                if (conference == null) {
+                    return null;
+                }
+                List<String> speakers = sessionForm.getSpeakers();
+
+                for (String speakersName : speakers) {
+                    Key<Speaker> speakerKey = Key.create(Speaker.class, speakersName);
+                    Speaker speaker = ofy().load().key(speakerKey).now();
+
+                    if (speaker == null) {
+                        speakerKey = factory().allocateId(Speaker.class);
+                        final long speakerId = speakerKey.getId();
+                        speaker = new Speaker(speakerId, speakersName, sessionKey);
+                        ofy().save().entity(speaker).now();
+                    } else {
+                        speaker.addSessionToSpeakersList(sessionKey);
+                        ofy().save().entity(speaker).now();
+                    }
+                }
+
+                Session session = new Session(sessionId, conferenceKey, sessionForm);
+                ofy().save().entity(conference).now();
+                ofy().save().entity(session).now();
+                return session;
+            }
+        });
+
+        if (session == null) {
+            throw new NotFoundException("No conference with key: " + websafeConferenceKey);
+        } else
+            return session;
+    }
+}

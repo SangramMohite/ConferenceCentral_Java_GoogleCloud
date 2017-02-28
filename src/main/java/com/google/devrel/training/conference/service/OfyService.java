@@ -1,8 +1,6 @@
 package com.google.devrel.training.conference.service;
 
-import com.google.devrel.training.conference.domain.AppEngineUser;
-import com.google.devrel.training.conference.domain.Conference;
-import com.google.devrel.training.conference.domain.Profile;
+import com.google.devrel.training.conference.domain.*;
 import com.googlecode.objectify.Objectify;
 import com.googlecode.objectify.ObjectifyFactory;
 import com.googlecode.objectify.ObjectifyService;
@@ -18,6 +16,8 @@ public class OfyService {
         factory().register(Profile.class);
         factory().register(Conference.class);
         factory().register(AppEngineUser.class);
+        factory().register(Session.class);
+        factory().register(Speaker.class);
     }
 
     /**
